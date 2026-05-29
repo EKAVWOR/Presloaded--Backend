@@ -1,166 +1,6 @@
-// // server/services/emailService.js
-// const nodemailer = require("nodemailer");
-// const {
-//   verificationEmailTemplate,
-//   welcomeEmailTemplate,
-//   purchaseConfirmationTemplate,
-//   admissionLetterEmailTemplate,
-//   certificateEmailTemplate,
-//   contactConfirmationTemplate,
-//   adminContactNotificationTemplate,
-//   passwordResetTemplate,
-//   newsletterConfirmationTemplate,
-// } = require("./emailTemplates");
-
-// const academyName = process.env.ACADEMY_NAME || "Tech Academy";
-
-// // ✅ Single reusable transporter
-// const transporter = nodemailer.createTransport({
-//   host: process.env.EMAIL_HOST,
-//   port: parseInt(process.env.EMAIL_PORT || "587"),
-//   secure: process.env.EMAIL_PORT === "465",
-//   auth: {
-//     user: process.env.EMAIL_USER,
-//     pass: process.env.EMAIL_PASS,
-//   },
-// });
-
-// // ✅ Reusable send helper
-// const sendEmail = async ({ to, subject, html, attachments = [] }) => {
-//   await transporter.sendMail({
-//     from: `"${academyName}" <${process.env.EMAIL_FROM}>`,
-//     to,
-//     subject,
-//     html,
-//     attachments,
-//   });
-// };
-
-// // ---------------------------
-// // VERIFICATION EMAIL
-// // ---------------------------
-// const sendVerificationEmail = async (user, verifyUrl) => {
-//   await sendEmail({
-//     to: user.email,
-//     subject: `Verify your email — ${academyName}`,
-//     html: verificationEmailTemplate(user.name, verifyUrl),
-//   });
-// };
-
-// // ---------------------------
-// // WELCOME EMAIL
-// // ---------------------------
-// const sendWelcomeEmail = async (user) => {
-//   await sendEmail({
-//     to: user.email,
-//     subject: `Welcome to ${academyName}! 🎉`,
-//     html: welcomeEmailTemplate(user.name),
-//   });
-// };
-
-// // ---------------------------
-// // PURCHASE CONFIRMATION
-// // ---------------------------
-// const sendPurchaseConfirmation = async (user, order) => {
-//   await sendEmail({
-//     to: user.email,
-//     subject: `Payment Confirmed — ${academyName}`,
-//     html: purchaseConfirmationTemplate(user.name, order),
-//   });
-// };
-
-// // ---------------------------
-// // ADMISSION LETTER EMAIL
-// // ---------------------------
-// const sendAdmissionLetterEmail = async (user, order, pdfBuffer) => {
-//   await sendEmail({
-//     to: user.email,
-//     subject: `Your Admission Letter — ${academyName}`,
-//     html: admissionLetterEmailTemplate(user.name, order),
-//     attachments: [
-//       {
-//         filename: `Admission_Letter_${user.name.replace(/\s+/g, "_")}.pdf`,
-//         content: pdfBuffer,
-//         contentType: "application/pdf",
-//       },
-//     ],
-//   });
-// };
-
-// // ---------------------------
-// // CERTIFICATE EMAIL ✅ NEW
-// // ---------------------------
-// const sendCertificateEmail = async (user, course, certificate, pdfBuffer) => {
-//   await sendEmail({
-//     to: user.email,
-//     subject: `🎓 Your Certificate for "${course.title}" — ${academyName}`,
-//     html: certificateEmailTemplate(user, course, certificate),
-//     attachments: [
-//       {
-//         filename: `Certificate_${course.title.replace(/\s+/g, "_")}_${user.name.replace(/\s+/g, "_")}.pdf`,
-//         content: pdfBuffer,
-//         contentType: "application/pdf",
-//       },
-//     ],
-//   });
-// };
-
-// // ---------------------------
-// // CONTACT EMAILS
-// // ---------------------------
-// const sendContactConfirmation = async (contact) => {
-//   await sendEmail({
-//     to: contact.email,
-//     subject: `We received your message — ${academyName}`,
-//     html: contactConfirmationTemplate(contact),
-//   });
-// };
-
-// const sendAdminContactNotification = async (contact) => {
-//   await sendEmail({
-//     to: process.env.ADMIN_EMAIL,
-//     subject: `New Contact Form: ${contact.subject}`,
-//     html: adminContactNotificationTemplate(contact),
-//   });
-// };
-
-// // ---------------------------
-// // PASSWORD RESET
-// // ---------------------------
-// const sendPasswordResetEmail = async (user, resetUrl) => {
-//   await sendEmail({
-//     to: user.email,
-//     subject: `Password Reset Request — ${academyName}`,
-//     html: passwordResetTemplate(user.name, resetUrl),
-//   });
-// };
-
-// // ---------------------------
-// // NEWSLETTER
-// // ---------------------------
-// const sendNewsletterConfirmation = async (email) => {
-//   await sendEmail({
-//     to: email,
-//     subject: `You're subscribed! — ${academyName}`,
-//     html: newsletterConfirmationTemplate(),
-//   });
-// };
-
-// // ✅ Single export at bottom
-// module.exports = {
-//   sendVerificationEmail,
-//   sendWelcomeEmail,
-//   sendPurchaseConfirmation,
-//   sendAdmissionLetterEmail,
-//   sendCertificateEmail,
-//   sendContactConfirmation,
-//   sendAdminContactNotification,
-//   sendPasswordResetEmail,
-//   sendNewsletterConfirmation,
-// };
-
 // server/services/emailService.js
-const nodemailer = require("nodemailer");
+const axios = require("axios");
+
 const {
   verificationEmailTemplate,
   welcomeEmailTemplate,
@@ -174,52 +14,45 @@ const {
 } = require("./emailTemplates");
 
 const academyName = process.env.ACADEMY_NAME || "Tech Academy";
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
-// ✅ Validate env vars at startup
-if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-  console.error("❌ EMAIL_USER or EMAIL_PASS is missing in .env");
-} else {
-  console.log("✅ Email credentials loaded:", process.env.EMAIL_USER);
-}
-
-// ✅ Single reusable transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: parseInt(process.env.EMAIL_PORT || "587"),
-  secure: process.env.EMAIL_PORT === "465", // true only for 465
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-// ✅ Verify connection at startup
-transporter.verify((err, success) => {
-  if (err) {
-    console.error("❌ Email transporter failed:", err.message);
-  } else {
-    console.log("✅ Email transporter ready to send mail");
-  }
-});
-
-// ✅ Reusable send helper with logging
+// ✅ Reusable email sender (using Brevo HTTP API)
 const sendEmail = async ({ to, subject, html, attachments = [] }) => {
-  try {
-    console.log(`📧 Sending email to: ${to}`);
+  console.log(`📧 Sending email to: ${to}`);
 
-    const info = await transporter.sendMail({
-      from: `"${academyName}" <${process.env.EMAIL_FROM}>`,
-      to,
-      subject,
-      html,
-      attachments,
+  const payload = {
+    sender: {
+      name: academyName,
+      email: process.env.EMAIL_FROM,
+    },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+  };
+
+  // Attach PDFs if provided
+  if (attachments.length > 0) {
+    payload.attachment = attachments.map((att) => ({
+      name: att.filename,
+      content: att.content.toString("base64"),
+    }));
+  }
+
+  try {
+    const response = await axios.post(BREVO_API_URL, payload, {
+      headers: {
+        "api-key": process.env.BREVO_API_KEY,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
     });
 
-    console.log(`✅ Email sent successfully: ${info.messageId}`);
-    return info;
+    console.log(`✅ Email sent to ${to} | MessageId: ${response.data.messageId}`);
+    return response.data;
   } catch (error) {
-    console.error(`❌ Failed to send email to ${to}:`, error.message);
-    throw error;
+    const errMsg = error.response?.data?.message || error.message;
+    console.error(`❌ Failed to send email to ${to}:`, errMsg);
+    throw new Error(errMsg);
   }
 };
 
@@ -234,6 +67,9 @@ const sendVerificationEmail = async (user, verifyUrl) => {
   });
 };
 
+// ---------------------------
+// WELCOME EMAIL
+// ---------------------------
 const sendWelcomeEmail = async (user) => {
   await sendEmail({
     to: user.email,
@@ -242,6 +78,9 @@ const sendWelcomeEmail = async (user) => {
   });
 };
 
+// ---------------------------
+// PURCHASE CONFIRMATION
+// ---------------------------
 const sendPurchaseConfirmation = async (user, order) => {
   await sendEmail({
     to: user.email,
@@ -250,6 +89,9 @@ const sendPurchaseConfirmation = async (user, order) => {
   });
 };
 
+// ---------------------------
+// ADMISSION LETTER
+// ---------------------------
 const sendAdmissionLetterEmail = async (user, order, pdfBuffer) => {
   await sendEmail({
     to: user.email,
@@ -259,12 +101,14 @@ const sendAdmissionLetterEmail = async (user, order, pdfBuffer) => {
       {
         filename: `Admission_Letter_${user.name.replace(/\s+/g, "_")}.pdf`,
         content: pdfBuffer,
-        contentType: "application/pdf",
       },
     ],
   });
 };
 
+// ---------------------------
+// CERTIFICATE
+// ---------------------------
 const sendCertificateEmail = async (user, course, certificate, pdfBuffer) => {
   await sendEmail({
     to: user.email,
@@ -274,12 +118,14 @@ const sendCertificateEmail = async (user, course, certificate, pdfBuffer) => {
       {
         filename: `Certificate_${course.title.replace(/\s+/g, "_")}_${user.name.replace(/\s+/g, "_")}.pdf`,
         content: pdfBuffer,
-        contentType: "application/pdf",
       },
     ],
   });
 };
 
+// ---------------------------
+// CONTACT EMAILS
+// ---------------------------
 const sendContactConfirmation = async (contact) => {
   await sendEmail({
     to: contact.email,
@@ -296,6 +142,9 @@ const sendAdminContactNotification = async (contact) => {
   });
 };
 
+// ---------------------------
+// PASSWORD RESET
+// ---------------------------
 const sendPasswordResetEmail = async (user, resetUrl) => {
   await sendEmail({
     to: user.email,
@@ -304,6 +153,9 @@ const sendPasswordResetEmail = async (user, resetUrl) => {
   });
 };
 
+// ---------------------------
+// NEWSLETTER
+// ---------------------------
 const sendNewsletterConfirmation = async (email) => {
   await sendEmail({
     to: email,
@@ -312,6 +164,7 @@ const sendNewsletterConfirmation = async (email) => {
   });
 };
 
+// ✅ Export all
 module.exports = {
   sendVerificationEmail,
   sendWelcomeEmail,
