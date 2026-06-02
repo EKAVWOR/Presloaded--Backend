@@ -23,7 +23,7 @@ const footerHTML = `
 
 const buttonStyle = `
   display: inline-block;
-  background: #4f46e5;
+  background: #61e546;
   color: white;
   padding: 14px 32px;
   border-radius: 8px;
