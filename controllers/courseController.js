@@ -35,58 +35,29 @@ const pick = (obj, allowed) => {
 const detectVideoType = (url) => {
   if (!url) return "";
   const u = String(url).toLowerCase();
-
   if (u.includes("youtube.com") || u.includes("youtu.be")) return "youtube";
   if (u.includes("cloudinary.com")) return "cloudinary";
   if (u.includes("vimeo.com")) return "vimeo";
-
   return "";
 };
 
-// ✅ Extract YouTube video ID from various URL formats
+// ✅ Extract YouTube video ID
 const getYouTubeVideoId = (url) => {
   if (!url) return null;
-
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
-  ];
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match && match[1]) return match[1];
-  }
-
-  return null;
+  const match = String(url).match(
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/
+  );
+  return match ? match[1] : null;
 };
 
 const buildCoursePayload = (body) => {
   const allowedFields = [
-    "title",
-    "shortDescription",
-    "description",
-    "courseType",
-    "category",
-    "level",
-    "duration",
-    "thumbnail",
-    "thumbnailPublicId",
-    "price",
-    "discountPrice",
-    "isFree",
-    "instructor",
-    "language",
-    "location",
-    "schedule",
-    "startDate",
-    "onlinePlatformUrl",
-    "curriculum",
-    "whatYouWillLearn",
-    "requirements",
-    "tags",
-    "isPublished",
-    "isFeatured",
-    "hasCertificate",
-    "previewVideoUrl",
+    "title", "shortDescription", "description", "courseType",
+    "category", "level", "duration", "thumbnail", "thumbnailPublicId",
+    "price", "discountPrice", "isFree", "instructor", "language",
+    "location", "schedule", "startDate", "onlinePlatformUrl",
+    "curriculum", "whatYouWillLearn", "requirements", "tags",
+    "isPublished", "isFeatured", "hasCertificate", "previewVideoUrl",
   ];
 
   const payload = pick(body, allowedFields);
@@ -101,26 +72,16 @@ const buildCoursePayload = (body) => {
   if (payload.startDate === "") payload.startDate = undefined;
   if (payload.startDate) payload.startDate = new Date(payload.startDate);
 
-  // Trim string fields
   for (const k of [
-    "title",
-    "shortDescription",
-    "description",
-    "category",
-    "duration",
-    "thumbnail",
-    "location",
-    "schedule",
-    "onlinePlatformUrl",
-    "instructor",
-    "language",
+    "title", "shortDescription", "description", "category",
+    "duration", "thumbnail", "location", "schedule",
+    "onlinePlatformUrl", "instructor", "language",
   ]) {
     if (payload[k] !== undefined && typeof payload[k] === "string") {
       payload[k] = payload[k].trim();
     }
   }
 
-  // Clean offline curriculum
   if (Array.isArray(payload.curriculum)) {
     payload.curriculum = payload.curriculum
       .map((m) => ({
@@ -138,7 +99,6 @@ const buildCoursePayload = (body) => {
       .filter((m) => m.title);
   }
 
-  // Clean array fields
   if (Array.isArray(payload.whatYouWillLearn)) {
     payload.whatYouWillLearn = payload.whatYouWillLearn
       .map((s) => String(s).trim())
@@ -155,7 +115,6 @@ const buildCoursePayload = (body) => {
     payload.tags = payload.tags.map((s) => String(s).trim()).filter(Boolean);
   }
 
-  // Clamp discount
   if (
     typeof payload.price === "number" &&
     typeof payload.discountPrice === "number" &&
@@ -196,14 +155,8 @@ const cleanupDeliveryFields = (docOrPayload, courseType) => {
 exports.getCourses = async (req, res, next) => {
   try {
     const {
-      search,
-      courseType,
-      category,
-      level,
-      featured,
-      sort,
-      page = 1,
-      limit = 20,
+      search, courseType, category, level,
+      featured, sort, page = 1, limit = 20,
     } = req.query;
 
     const query = { isPublished: true };
@@ -225,20 +178,11 @@ exports.getCourses = async (req, res, next) => {
 
     let sortOption = {};
     switch (sort) {
-      case "price-low":
-        sortOption = { price: 1 };
-        break;
-      case "price-high":
-        sortOption = { price: -1 };
-        break;
-      case "popular":
-        sortOption = { studentsEnrolled: -1 };
-        break;
-      case "oldest":
-        sortOption = { createdAt: 1 };
-        break;
-      default:
-        sortOption = { createdAt: -1 };
+      case "price-low": sortOption = { price: 1 }; break;
+      case "price-high": sortOption = { price: -1 }; break;
+      case "popular": sortOption = { studentsEnrolled: -1 }; break;
+      case "oldest": sortOption = { createdAt: 1 }; break;
+      default: sortOption = { createdAt: -1 };
     }
 
     const pageNum = parseInt(page, 10) || 1;
@@ -252,10 +196,10 @@ exports.getCourses = async (req, res, next) => {
       .limit(limitNum)
       .select(
         "title slug shortDescription courseType category level price " +
-          "discountPrice isFree duration thumbnail isFeatured averageRating " +
-          "totalReviews studentsEnrolled location schedule startDate " +
-          "onlinePlatformUrl totalLessons totalDuration totalSections " +
-          "instructor language createdAt"
+        "discountPrice isFree duration thumbnail isFeatured averageRating " +
+        "totalReviews studentsEnrolled location schedule startDate " +
+        "onlinePlatformUrl totalLessons totalDuration totalSections " +
+        "instructor language createdAt"
       );
 
     res.status(200).json({
@@ -290,7 +234,6 @@ exports.getCourseBySlug = async (req, res, next) => {
 
     let courseData = course.toObject();
 
-    // ✅ Hide video URLs for non-enrolled users on online courses
     if (course.courseType === "online") {
       let isEnrolled = false;
 
@@ -330,16 +273,14 @@ exports.getCourseBySlug = async (req, res, next) => {
 // ADMIN — COURSE CRUD
 // ============================================================
 
-// @desc    Get all courses including unpublished (admin)
-// @route   GET /api/courses/admin/all
 exports.getAllCoursesAdmin = async (req, res, next) => {
   try {
     const courses = await Course.find()
       .sort("-createdAt")
       .select(
         "title slug courseType category level price discountPrice " +
-          "isFree thumbnail isPublished isFeatured studentsEnrolled " +
-          "totalLessons totalSections averageRating createdAt instructor"
+        "isFree thumbnail isPublished isFeatured studentsEnrolled " +
+        "totalLessons totalSections averageRating createdAt instructor"
       );
 
     res.status(200).json({ success: true, courses });
@@ -348,8 +289,6 @@ exports.getAllCoursesAdmin = async (req, res, next) => {
   }
 };
 
-// @desc    Create course (admin)
-// @route   POST /api/courses
 exports.createCourse = async (req, res, next) => {
   try {
     const payload = buildCoursePayload(req.body);
@@ -369,8 +308,6 @@ exports.createCourse = async (req, res, next) => {
   }
 };
 
-// @desc    Update course (admin)
-// @route   PUT /api/courses/:id
 exports.updateCourse = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id);
@@ -403,8 +340,6 @@ exports.updateCourse = async (req, res, next) => {
   }
 };
 
-// @desc    Delete course (admin)
-// @route   DELETE /api/courses/:id
 exports.deleteCourse = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id);
@@ -433,7 +368,6 @@ exports.deleteCourse = async (req, res, next) => {
       }
     }
 
-    // ✅ Delete thumbnail from Cloudinary
     if (course.thumbnailPublicId) {
       try {
         await deleteFromCloudinary(course.thumbnailPublicId, "image");
@@ -452,8 +386,6 @@ exports.deleteCourse = async (req, res, next) => {
   }
 };
 
-// @desc    Upload course thumbnail (admin)
-// @route   POST /api/courses/upload-thumbnail
 exports.uploadThumbnail = async (req, res, next) => {
   try {
     if (!req.file) {
@@ -495,8 +427,6 @@ exports.uploadThumbnail = async (req, res, next) => {
 // ADMIN — CURRICULUM BUILDER
 // ============================================================
 
-// @desc    Get full course curriculum (admin)
-// @route   GET /api/courses/:id/curriculum
 exports.getCurriculum = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id).select(
@@ -524,8 +454,6 @@ exports.getCurriculum = async (req, res, next) => {
   }
 };
 
-// @desc    Add section to course
-// @route   POST /api/courses/:id/sections
 exports.addSection = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id);
@@ -560,8 +488,6 @@ exports.addSection = async (req, res, next) => {
   }
 };
 
-// @desc    Update section
-// @route   PUT /api/courses/:id/sections/:sectionId
 exports.updateSection = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id);
@@ -592,8 +518,6 @@ exports.updateSection = async (req, res, next) => {
   }
 };
 
-// @desc    Delete section
-// @route   DELETE /api/courses/:id/sections/:sectionId
 exports.deleteSection = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id);
@@ -635,8 +559,6 @@ exports.deleteSection = async (req, res, next) => {
   }
 };
 
-// @desc    Add lesson to section
-// @route   POST /api/courses/:id/sections/:sectionId/lessons
 exports.addLesson = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id);
@@ -686,8 +608,6 @@ exports.addLesson = async (req, res, next) => {
   }
 };
 
-// @desc    Update lesson details
-// @route   PUT /api/courses/:id/sections/:sectionId/lessons/:lessonId
 exports.updateLesson = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id);
@@ -733,8 +653,6 @@ exports.updateLesson = async (req, res, next) => {
   }
 };
 
-// @desc    Delete lesson
-// @route   DELETE /api/courses/:id/sections/:sectionId/lessons/:lessonId
 exports.deleteLesson = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id);
@@ -785,9 +703,13 @@ exports.deleteLesson = async (req, res, next) => {
 // ============================================================
 // ✅ SAVE LESSON VIDEO URL (YouTube, Cloudinary, Vimeo)
 // @route POST /api/courses/:id/sections/:sectionId/lessons/:lessonId/video
+// ✅ NO multer middleware - receives JSON only
 // ============================================================
 exports.uploadLessonVideo = async (req, res, next) => {
   try {
+    // ✅ DEBUG: Log what we received
+    console.log("📥 uploadLessonVideo received body:", req.body);
+
     const {
       videoUrl,
       videoPublicId,
@@ -798,6 +720,7 @@ exports.uploadLessonVideo = async (req, res, next) => {
 
     // ✅ Validate URL exists
     if (!videoUrl || !String(videoUrl).trim()) {
+      console.log("❌ No videoUrl in body");
       return res.status(400).json({
         success: false,
         message: "Video URL is required",
@@ -808,6 +731,8 @@ exports.uploadLessonVideo = async (req, res, next) => {
     const detectedType = detectVideoType(videoUrl);
     const videoType = providedType || detectedType;
 
+    console.log("🎬 Video type detected:", videoType);
+
     // ✅ Accept YouTube, Cloudinary, OR Vimeo URLs
     if (!videoType) {
       return res.status(400).json({
@@ -817,7 +742,7 @@ exports.uploadLessonVideo = async (req, res, next) => {
       });
     }
 
-    // ✅ Validate YouTube URL format if YouTube
+    // ✅ Validate YouTube URL format
     if (videoType === "youtube") {
       const ytId = getYouTubeVideoId(videoUrl);
       if (!ytId) {
@@ -896,6 +821,8 @@ exports.uploadLessonVideo = async (req, res, next) => {
 
     await course.save();
 
+    console.log("✅ Video saved:", { type: videoType, url: videoUrl });
+
     res.status(200).json({
       success: true,
       message: `${
@@ -911,6 +838,7 @@ exports.uploadLessonVideo = async (req, res, next) => {
       },
     });
   } catch (error) {
+    console.error("❌ uploadLessonVideo error:", error);
     next(error);
   }
 };
@@ -919,8 +847,6 @@ exports.uploadLessonVideo = async (req, res, next) => {
 // REVIEWS
 // ============================================================
 
-// @desc    Add review to course
-// @route   POST /api/courses/:slug/reviews
 exports.addReview = async (req, res, next) => {
   try {
     const course = await Course.findOne({ slug: req.params.slug });
@@ -931,7 +857,6 @@ exports.addReview = async (req, res, next) => {
       });
     }
 
-    // Must be enrolled to review
     try {
       const Enrollment = require("../models/Enrollment");
       const enrollment = await Enrollment.findOne({
@@ -952,7 +877,6 @@ exports.addReview = async (req, res, next) => {
       });
     }
 
-    // ✅ One review per user
     const alreadyReviewed = course.reviews.find(
       (r) => r.user.toString() === req.user._id.toString()
     );
@@ -1001,8 +925,6 @@ exports.addReview = async (req, res, next) => {
   }
 };
 
-// @desc    Delete review (admin or owner)
-// @route   DELETE /api/courses/:slug/reviews/:reviewId
 exports.deleteReview = async (req, res, next) => {
   try {
     const course = await Course.findOne({ slug: req.params.slug });
