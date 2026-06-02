@@ -1,12 +1,11 @@
 // server/controllers/courseController.js
 const Course = require("../models/Course");
 const cloudinary = require("../config/cloudinary");
-const {
-  uploadVideo,
-  deleteFromCloudinary,
-} = require("../services/uploadService");
+const { deleteFromCloudinary } = require("../services/uploadService");
 
-// ===== Helpers =====
+// ============================================================
+// HELPERS
+// ============================================================
 
 const normalizeCourseType = (v) => {
   if (!v) return undefined;
@@ -32,14 +31,62 @@ const pick = (obj, allowed) => {
   return out;
 };
 
+// ✅ Detect video type from URL
+const detectVideoType = (url) => {
+  if (!url) return "";
+  const u = String(url).toLowerCase();
+
+  if (u.includes("youtube.com") || u.includes("youtu.be")) return "youtube";
+  if (u.includes("cloudinary.com")) return "cloudinary";
+  if (u.includes("vimeo.com")) return "vimeo";
+
+  return "";
+};
+
+// ✅ Extract YouTube video ID from various URL formats
+const getYouTubeVideoId = (url) => {
+  if (!url) return null;
+
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+
+  return null;
+};
+
 const buildCoursePayload = (body) => {
   const allowedFields = [
-    "title", "shortDescription", "description", "courseType",
-    "category", "level", "duration", "thumbnail", "thumbnailPublicId",
-    "price", "discountPrice", "isFree", "instructor", "language",
-    "location", "schedule", "startDate", "onlinePlatformUrl",
-    "curriculum", "whatYouWillLearn", "requirements", "tags",
-    "isPublished", "isFeatured", "hasCertificate", "previewVideoUrl",
+    "title",
+    "shortDescription",
+    "description",
+    "courseType",
+    "category",
+    "level",
+    "duration",
+    "thumbnail",
+    "thumbnailPublicId",
+    "price",
+    "discountPrice",
+    "isFree",
+    "instructor",
+    "language",
+    "location",
+    "schedule",
+    "startDate",
+    "onlinePlatformUrl",
+    "curriculum",
+    "whatYouWillLearn",
+    "requirements",
+    "tags",
+    "isPublished",
+    "isFeatured",
+    "hasCertificate",
+    "previewVideoUrl",
   ];
 
   const payload = pick(body, allowedFields);
@@ -48,8 +95,7 @@ const buildCoursePayload = (body) => {
     payload.courseType = normalizeCourseType(payload.courseType);
   if (payload.level !== undefined)
     payload.level = normalizeLevel(payload.level);
-  if (payload.price !== undefined)
-    payload.price = toNumber(payload.price, 0);
+  if (payload.price !== undefined) payload.price = toNumber(payload.price, 0);
   if (payload.discountPrice !== undefined)
     payload.discountPrice = toNumber(payload.discountPrice, 0);
   if (payload.startDate === "") payload.startDate = undefined;
@@ -57,9 +103,17 @@ const buildCoursePayload = (body) => {
 
   // Trim string fields
   for (const k of [
-    "title", "shortDescription", "description", "category",
-    "duration", "thumbnail", "location", "schedule",
-    "onlinePlatformUrl", "instructor", "language",
+    "title",
+    "shortDescription",
+    "description",
+    "category",
+    "duration",
+    "thumbnail",
+    "location",
+    "schedule",
+    "onlinePlatformUrl",
+    "instructor",
+    "language",
   ]) {
     if (payload[k] !== undefined && typeof payload[k] === "string") {
       payload[k] = payload[k].trim();
@@ -113,7 +167,6 @@ const buildCoursePayload = (body) => {
   return payload;
 };
 
-// ✅ Only offline requires location — online URL is optional
 const validateDeliveryFields = ({ courseType, location }) => {
   if (courseType === "offline") {
     if (!location || !String(location).trim()) {
@@ -138,13 +191,19 @@ const cleanupDeliveryFields = (docOrPayload, courseType) => {
 // PUBLIC ROUTES
 // ============================================================
 
-// @desc    Get all courses (public)
+// @desc    Get all published courses (public)
 // @route   GET /api/courses
 exports.getCourses = async (req, res, next) => {
   try {
     const {
-      search, courseType, category, level,
-      featured, sort, page = 1, limit = 20,
+      search,
+      courseType,
+      category,
+      level,
+      featured,
+      sort,
+      page = 1,
+      limit = 20,
     } = req.query;
 
     const query = { isPublished: true };
@@ -166,11 +225,20 @@ exports.getCourses = async (req, res, next) => {
 
     let sortOption = {};
     switch (sort) {
-      case "price-low": sortOption = { price: 1 }; break;
-      case "price-high": sortOption = { price: -1 }; break;
-      case "popular": sortOption = { studentsEnrolled: -1 }; break;
-      case "oldest": sortOption = { createdAt: 1 }; break;
-      default: sortOption = { createdAt: -1 };
+      case "price-low":
+        sortOption = { price: 1 };
+        break;
+      case "price-high":
+        sortOption = { price: -1 };
+        break;
+      case "popular":
+        sortOption = { studentsEnrolled: -1 };
+        break;
+      case "oldest":
+        sortOption = { createdAt: 1 };
+        break;
+      default:
+        sortOption = { createdAt: -1 };
     }
 
     const pageNum = parseInt(page, 10) || 1;
@@ -184,10 +252,10 @@ exports.getCourses = async (req, res, next) => {
       .limit(limitNum)
       .select(
         "title slug shortDescription courseType category level price " +
-        "discountPrice isFree duration thumbnail isFeatured averageRating " +
-        "totalReviews studentsEnrolled location schedule startDate " +
-        "onlinePlatformUrl totalLessons totalDuration totalSections " +
-        "instructor language createdAt"
+          "discountPrice isFree duration thumbnail isFeatured averageRating " +
+          "totalReviews studentsEnrolled location schedule startDate " +
+          "onlinePlatformUrl totalLessons totalDuration totalSections " +
+          "instructor language createdAt"
       );
 
     res.status(200).json({
@@ -226,7 +294,6 @@ exports.getCourseBySlug = async (req, res, next) => {
     if (course.courseType === "online") {
       let isEnrolled = false;
 
-      // Only check enrollment if user is logged in
       if (req.user) {
         try {
           const Enrollment = require("../models/Enrollment");
@@ -236,7 +303,6 @@ exports.getCourseBySlug = async (req, res, next) => {
           });
           isEnrolled = !!enrollment;
         } catch (err) {
-          // Enrollment model might not exist yet — treat as not enrolled
           isEnrolled = false;
         }
       }
@@ -247,7 +313,8 @@ exports.getCourseBySlug = async (req, res, next) => {
           lessons: (section.lessons || []).map((lesson) => ({
             ...lesson,
             videoUrl: lesson.isFree ? lesson.videoUrl : "",
-            videoPublicId: "",
+            videoPublicId: lesson.isFree ? lesson.videoPublicId : "",
+            videoType: lesson.isFree ? lesson.videoType : "",
           })),
         }));
       }
@@ -271,9 +338,10 @@ exports.getAllCoursesAdmin = async (req, res, next) => {
       .sort("-createdAt")
       .select(
         "title slug courseType category level price discountPrice " +
-        "isFree thumbnail isPublished isFeatured studentsEnrolled " +
-        "totalLessons totalSections averageRating createdAt instructor"
+          "isFree thumbnail isPublished isFeatured studentsEnrolled " +
+          "totalLessons totalSections averageRating createdAt instructor"
       );
+
     res.status(200).json({ success: true, courses });
   } catch (error) {
     next(error);
@@ -287,7 +355,6 @@ exports.createCourse = async (req, res, next) => {
     const payload = buildCoursePayload(req.body);
     payload.courseType = payload.courseType || "online";
 
-    // ✅ Only offline requires location
     const msg = validateDeliveryFields(payload);
     if (msg) {
       return res.status(400).json({ success: false, message: msg });
@@ -319,7 +386,6 @@ exports.updateCourse = async (req, res, next) => {
 
     course.set({ ...payload, courseType: nextCourseType });
 
-    // ✅ Only validate offline location
     const msg = validateDeliveryFields({
       courseType: nextCourseType,
       location: course.location,
@@ -330,6 +396,7 @@ exports.updateCourse = async (req, res, next) => {
 
     cleanupDeliveryFields(course, nextCourseType);
     await course.save();
+
     res.status(200).json({ success: true, course });
   } catch (error) {
     next(error);
@@ -348,20 +415,34 @@ exports.deleteCourse = async (req, res, next) => {
       });
     }
 
-    // Delete all Cloudinary videos in sections
+    // ✅ Delete only Cloudinary videos (skip YouTube)
     if (course.sections && course.sections.length > 0) {
       for (const section of course.sections) {
         for (const lesson of section.lessons) {
-          if (lesson.videoPublicId) {
-            await deleteFromCloudinary(lesson.videoPublicId, "video");
+          if (lesson.videoPublicId && lesson.videoType === "cloudinary") {
+            try {
+              await deleteFromCloudinary(lesson.videoPublicId, "video");
+            } catch (err) {
+              console.error(
+                `Failed to delete video ${lesson.videoPublicId}:`,
+                err.message
+              );
+            }
           }
         }
       }
     }
 
-    // Delete thumbnail from Cloudinary
+    // ✅ Delete thumbnail from Cloudinary
     if (course.thumbnailPublicId) {
-      await deleteFromCloudinary(course.thumbnailPublicId, "image");
+      try {
+        await deleteFromCloudinary(course.thumbnailPublicId, "image");
+      } catch (err) {
+        console.error(
+          `Failed to delete thumbnail ${course.thumbnailPublicId}:`,
+          err.message
+        );
+      }
     }
 
     await course.deleteOne();
@@ -385,8 +466,12 @@ exports.uploadThumbnail = async (req, res, next) => {
     const result = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
-          folder: "tech-academy/courses",
-          transformation: [{ width: 800, height: 450, crop: "fill" }],
+          folder: "tech-academy/courses/thumbnails",
+          transformation: [
+            { width: 800, height: 450, crop: "fill" },
+            { quality: "auto" },
+            { fetch_format: "auto" },
+          ],
         },
         (error, result) => {
           if (error) reject(error);
@@ -527,10 +612,17 @@ exports.deleteSection = async (req, res, next) => {
       });
     }
 
-    // Delete all videos in this section from Cloudinary
+    // ✅ Delete only Cloudinary videos (skip YouTube)
     for (const lesson of section.lessons) {
-      if (lesson.videoPublicId) {
-        await deleteFromCloudinary(lesson.videoPublicId, "video");
+      if (lesson.videoPublicId && lesson.videoType === "cloudinary") {
+        try {
+          await deleteFromCloudinary(lesson.videoPublicId, "video");
+        } catch (err) {
+          console.error(
+            `Failed to delete video ${lesson.videoPublicId}:`,
+            err.message
+          );
+        }
       }
     }
 
@@ -578,7 +670,9 @@ exports.addLesson = async (req, res, next) => {
       order: section.lessons.length,
       videoUrl: "",
       videoPublicId: "",
+      videoType: "",
       videoDuration: 0,
+      thumbnailUrl: "",
       isPublished: false,
       resources: [],
     });
@@ -620,7 +714,8 @@ exports.updateLesson = async (req, res, next) => {
       });
     }
 
-    const { title, description, isFree, isPublished, order, resources } = req.body;
+    const { title, description, isFree, isPublished, order, resources } =
+      req.body;
 
     if (title && title.trim()) lesson.title = title.trim();
     if (description !== undefined) lesson.description = description.trim();
@@ -666,9 +761,16 @@ exports.deleteLesson = async (req, res, next) => {
       });
     }
 
-    // Delete video from Cloudinary
-    if (lesson.videoPublicId) {
-      await deleteFromCloudinary(lesson.videoPublicId, "video");
+    // ✅ Delete only Cloudinary videos (skip YouTube)
+    if (lesson.videoPublicId && lesson.videoType === "cloudinary") {
+      try {
+        await deleteFromCloudinary(lesson.videoPublicId, "video");
+      } catch (err) {
+        console.error(
+          `Failed to delete video ${lesson.videoPublicId}:`,
+          err.message
+        );
+      }
     }
 
     lesson.deleteOne();
@@ -680,15 +782,50 @@ exports.deleteLesson = async (req, res, next) => {
   }
 };
 
-// @desc    Upload video to lesson
-// @route   POST /api/courses/:id/sections/:sectionId/lessons/:lessonId/video
+// ============================================================
+// ✅ SAVE LESSON VIDEO URL (YouTube, Cloudinary, Vimeo)
+// @route POST /api/courses/:id/sections/:sectionId/lessons/:lessonId/video
+// ============================================================
 exports.uploadLessonVideo = async (req, res, next) => {
   try {
-    if (!req.file) {
+    const {
+      videoUrl,
+      videoPublicId,
+      videoDuration,
+      thumbnailUrl,
+      videoType: providedType,
+    } = req.body;
+
+    // ✅ Validate URL exists
+    if (!videoUrl || !String(videoUrl).trim()) {
       return res.status(400).json({
         success: false,
-        message: "Please upload a video file",
+        message: "Video URL is required",
       });
+    }
+
+    // ✅ Auto-detect video type from URL
+    const detectedType = detectVideoType(videoUrl);
+    const videoType = providedType || detectedType;
+
+    // ✅ Accept YouTube, Cloudinary, OR Vimeo URLs
+    if (!videoType) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid video URL. Must be a YouTube, Cloudinary, or Vimeo URL.",
+      });
+    }
+
+    // ✅ Validate YouTube URL format if YouTube
+    if (videoType === "youtube") {
+      const ytId = getYouTubeVideoId(videoUrl);
+      if (!ytId) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid YouTube URL format",
+        });
+      }
     }
 
     const course = await Course.findById(req.params.id);
@@ -715,30 +852,60 @@ exports.uploadLessonVideo = async (req, res, next) => {
       });
     }
 
-    // Delete old video if exists
-    if (lesson.videoPublicId) {
-      await deleteFromCloudinary(lesson.videoPublicId, "video");
+    // ✅ Delete old Cloudinary video if replacing (skip YouTube)
+    if (
+      lesson.videoPublicId &&
+      lesson.videoType === "cloudinary" &&
+      lesson.videoPublicId !== videoPublicId
+    ) {
+      try {
+        await deleteFromCloudinary(lesson.videoPublicId, "video");
+      } catch (err) {
+        console.error(
+          `Failed to delete old video ${lesson.videoPublicId}:`,
+          err.message
+        );
+      }
     }
 
-    // Upload new video to Cloudinary
-    const result = await uploadVideo(
-      req.file.buffer,
-      `tech-academy/courses/${req.params.id}/lessons`
-    );
+    // ✅ Auto-generate YouTube thumbnail if not provided
+    let finalThumbnail = thumbnailUrl || "";
+    if (videoType === "youtube" && !finalThumbnail) {
+      const ytId = getYouTubeVideoId(videoUrl);
+      if (ytId) {
+        finalThumbnail = `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg`;
+      }
+    }
 
-    lesson.videoUrl = result.secure_url;
-    lesson.videoPublicId = result.public_id;
-    lesson.videoDuration = Math.round(result.duration || 0);
-    lesson.thumbnailUrl = result.thumbnail_url || "";
+    // ✅ Auto-generate publicId for YouTube
+    let finalPublicId = videoPublicId || "";
+    if (videoType === "youtube" && !finalPublicId) {
+      const ytId = getYouTubeVideoId(videoUrl);
+      if (ytId) {
+        finalPublicId = ytId;
+      }
+    }
+
+    // ✅ Save video data
+    lesson.videoUrl = videoUrl.trim();
+    lesson.videoPublicId = finalPublicId;
+    lesson.videoType = videoType;
+    lesson.videoDuration = Math.round(Number(videoDuration) || 0);
+    lesson.thumbnailUrl = finalThumbnail;
+    lesson.isPublished = true;
 
     await course.save();
 
     res.status(200).json({
       success: true,
+      message: `${
+        videoType === "youtube" ? "YouTube" : "Video"
+      } URL saved successfully`,
       lesson,
       video: {
-        url: result.secure_url,
-        publicId: result.public_id,
+        url: lesson.videoUrl,
+        publicId: lesson.videoPublicId,
+        type: lesson.videoType,
         duration: lesson.videoDuration,
         thumbnailUrl: lesson.thumbnailUrl,
       },
@@ -785,7 +952,7 @@ exports.addReview = async (req, res, next) => {
       });
     }
 
-    // One review per user
+    // ✅ One review per user
     const alreadyReviewed = course.reviews.find(
       (r) => r.user.toString() === req.user._id.toString()
     );
@@ -820,7 +987,6 @@ exports.addReview = async (req, res, next) => {
     course.updateAverageRating();
     await course.save();
 
-    // Return populated review
     const newReview = course.reviews[course.reviews.length - 1];
 
     res.status(201).json({

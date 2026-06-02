@@ -1,15 +1,280 @@
+// // server/routes/courseRoutes.js
+// const express = require("express");
+// const router = express.Router();
+
+// const controller = require("../controllers/courseController");
+
+// // 🔍 DEBUG — temporary
+// console.log("===== Course Controller Functions =====");
+// Object.keys(controller).forEach((key) => {
+//   console.log(`${key}: ${typeof controller[key]}`);
+// });
+// console.log("=======================================");
+
+// const {
+//   getCourses,
+//   getCourseBySlug,
+//   createCourse,
+//   updateCourse,
+//   deleteCourse,
+//   getAllCoursesAdmin,
+//   uploadThumbnail,
+//   getCurriculum,
+//   addSection,
+//   updateSection,
+//   deleteSection,
+//   addLesson,
+//   updateLesson,
+//   deleteLesson,
+//   uploadLessonVideo,
+//   addReview,
+//   deleteReview,
+
+// // ... rest of your routes file unchanged
+// } = require("../controllers/courseController");
+
+// const protect = require("../middleware/auth");
+// const adminOnly = require("../middleware/admin");
+// const { courseValidation } = require("../middleware/validate");
+// const upload = require("../middleware/upload");
+// const { upload: multipartUpload } = require("../services/uploadService");
+
+// // ============================================================
+// // PUBLIC — no auth needed
+// // ============================================================
+// router.get("/", getCourses);
+
+// // ============================================================
+// // ADMIN — static paths FIRST (before any /:param)
+// // ============================================================
+// router.get("/admin/all", protect, adminOnly, getAllCoursesAdmin);
+
+// router.post(
+//   "/upload-thumbnail",
+//   protect,
+//   adminOnly,
+//   upload.single("thumbnail"),
+//   uploadThumbnail
+// );
+
+// // Create course
+// router.post("/", protect, adminOnly, courseValidation, createCourse);
+
+// // ============================================================
+// // ADMIN — /:id routes (before /:slug catch-all)
+// // ============================================================
+
+// // Update / Delete course
+// router.put("/:id", protect, adminOnly, updateCourse);
+// router.delete("/:id", protect, adminOnly, deleteCourse);
+
+// // ── Curriculum ──────────────────────────────────────────────
+// router.get(
+//   "/:id/curriculum",
+//   protect,
+//   adminOnly,
+//   getCurriculum
+// );
+
+// // Sections
+// router.post(
+//   "/:id/sections",
+//   protect,
+//   adminOnly,
+//   addSection
+// );
+// router.put(
+//   "/:id/sections/:sectionId",
+//   protect,
+//   adminOnly,
+//   updateSection
+// );
+// router.delete(
+//   "/:id/sections/:sectionId",
+//   protect,
+//   adminOnly,
+//   deleteSection
+// );
+
+// // Lessons
+// router.post(
+//   "/:id/sections/:sectionId/lessons",
+//   protect,
+//   adminOnly,
+//   addLesson
+// );
+// router.put(
+//   "/:id/sections/:sectionId/lessons/:lessonId",
+//   protect,
+//   adminOnly,
+//   updateLesson
+// );
+// router.delete(
+//   "/:id/sections/:sectionId/lessons/:lessonId",
+//   protect,
+//   adminOnly,
+//   deleteLesson
+// );
+
+// // Video upload (1GB — uses uploadService multer, not middleware/upload)
+// router.post(
+//   "/:id/sections/:sectionId/lessons/:lessonId/video",
+//   protect,
+//   adminOnly,
+//   multipartUpload.single("video"),
+//   uploadLessonVideo
+// );
+
+// // ============================================================
+// // PROTECTED — Reviews (enrolled students only)
+// // ============================================================
+// router.post("/:slug/reviews", protect, addReview);
+// router.delete("/:slug/reviews/:reviewId", protect, deleteReview);
+
+// // ============================================================
+// // PUBLIC — /:slug MUST be last (catch-all param)
+// // ============================================================
+// router.get("/:slug", getCourseBySlug);
+
+// module.exports = router;
+
+// server/routes/courseRoutes.js
+// const express = require("express");
+// const router = express.Router();
+
+// const {
+//   getCourses,
+//   getCourseBySlug,
+//   createCourse,
+//   updateCourse,
+//   deleteCourse,
+//   getAllCoursesAdmin,
+//   uploadThumbnail,
+//   getCurriculum,
+//   addSection,
+//   updateSection,
+//   deleteSection,
+//   addLesson,
+//   updateLesson,
+//   deleteLesson,
+//   uploadLessonVideo,
+//   addReview,
+//   deleteReview,
+// } = require("../controllers/courseController");
+
+// const protect = require("../middleware/auth");
+// const adminOnly = require("../middleware/admin");
+// const { courseValidation } = require("../middleware/validate");
+// const upload = require("../middleware/upload"); // ✅ Only for thumbnail
+
+// // ✅ REMOVED — multipartUpload from uploadService
+// // const { upload: multipartUpload } = require("../services/uploadService");
+
+// // ============================================================
+// // PUBLIC — no auth needed
+// // ============================================================
+// router.get("/", getCourses);
+
+// // ============================================================
+// // ADMIN — static paths FIRST (before any /:param)
+// // ============================================================
+// router.get("/admin/all", protect, adminOnly, getAllCoursesAdmin);
+
+// // ✅ Thumbnail stays on server — small file (under 5mb)
+// router.post(
+//   "/upload-thumbnail",
+//   protect,
+//   adminOnly,
+//   upload.single("thumbnail"),
+//   uploadThumbnail
+// );
+
+// // Create course
+// router.post("/", protect, adminOnly, courseValidation, createCourse);
+
+// // ============================================================
+// // ADMIN — /:id routes (before /:slug catch-all)
+// // ============================================================
+
+// // Update / Delete course
+// router.put("/:id", protect, adminOnly, updateCourse);
+// router.delete("/:id", protect, adminOnly, deleteCourse);
+
+// // ── Curriculum ──────────────────────────────────────────────
+// router.get(
+//   "/:id/curriculum",
+//   protect,
+//   adminOnly,
+//   getCurriculum
+// );
+
+// // ── Sections ────────────────────────────────────────────────
+// router.post(
+//   "/:id/sections",
+//   protect,
+//   adminOnly,
+//   addSection
+// );
+// router.put(
+//   "/:id/sections/:sectionId",
+//   protect,
+//   adminOnly,
+//   updateSection
+// );
+// router.delete(
+//   "/:id/sections/:sectionId",
+//   protect,
+//   adminOnly,
+//   deleteSection
+// );
+
+// // ── Lessons ─────────────────────────────────────────────────
+// router.post(
+//   "/:id/sections/:sectionId/lessons",
+//   protect,
+//   adminOnly,
+//   addLesson
+// );
+// router.put(
+//   "/:id/sections/:sectionId/lessons/:lessonId",
+//   protect,
+//   adminOnly,
+//   updateLesson
+// );
+// router.delete(
+//   "/:id/sections/:sectionId/lessons/:lessonId",
+//   protect,
+//   adminOnly,
+//   deleteLesson
+// );
+
+// // ── Video ────────────────────────────────────────────────────
+// // ✅ FIXED — No multer here
+// // Video is uploaded directly from browser to Cloudinary
+// // This route ONLY saves the returned URL to MongoDB
+// router.post(
+//   "/:id/sections/:sectionId/lessons/:lessonId/video",
+//   protect,
+//   adminOnly,
+//   uploadLessonVideo // ✅ Just saves the URL — no file handling
+// );
+
+// // ============================================================
+// // PROTECTED — Reviews (enrolled students only)
+// // ============================================================
+// router.post("/:slug/reviews", protect, addReview);
+// router.delete("/:slug/reviews/:reviewId", protect, deleteReview);
+
+// // ============================================================
+// // PUBLIC — /:slug MUST be last (catch-all param)
+// // ============================================================
+// router.get("/:slug", getCourseBySlug);
+
+// module.exports = router;
+
 // server/routes/courseRoutes.js
 const express = require("express");
 const router = express.Router();
-
-const controller = require("../controllers/courseController");
-
-// 🔍 DEBUG — temporary
-console.log("===== Course Controller Functions =====");
-Object.keys(controller).forEach((key) => {
-  console.log(`${key}: ${typeof controller[key]}`);
-});
-console.log("=======================================");
 
 const {
   getCourses,
@@ -29,15 +294,15 @@ const {
   uploadLessonVideo,
   addReview,
   deleteReview,
-
-// ... rest of your routes file unchanged
 } = require("../controllers/courseController");
 
 const protect = require("../middleware/auth");
 const adminOnly = require("../middleware/admin");
 const { courseValidation } = require("../middleware/validate");
-const upload = require("../middleware/upload");
-const { upload: multipartUpload } = require("../services/uploadService");
+const upload = require("../middleware/upload"); // ✅ Only for thumbnail
+
+// ✅ REMOVED — multipartUpload from uploadService
+// const { upload: multipartUpload } = require("../services/uploadService");
 
 // ============================================================
 // PUBLIC — no auth needed
@@ -49,6 +314,7 @@ router.get("/", getCourses);
 // ============================================================
 router.get("/admin/all", protect, adminOnly, getAllCoursesAdmin);
 
+// ✅ Thumbnail stays on server — small file (under 5mb)
 router.post(
   "/upload-thumbnail",
   protect,
@@ -76,7 +342,7 @@ router.get(
   getCurriculum
 );
 
-// Sections
+// ── Sections ────────────────────────────────────────────────
 router.post(
   "/:id/sections",
   protect,
@@ -96,7 +362,7 @@ router.delete(
   deleteSection
 );
 
-// Lessons
+// ── Lessons ─────────────────────────────────────────────────
 router.post(
   "/:id/sections/:sectionId/lessons",
   protect,
@@ -116,13 +382,15 @@ router.delete(
   deleteLesson
 );
 
-// Video upload (1GB — uses uploadService multer, not middleware/upload)
+// ── Video ────────────────────────────────────────────────────
+// ✅ FIXED — No multer here
+// Video is uploaded directly from browser to Cloudinary
+// This route ONLY saves the returned URL to MongoDB
 router.post(
   "/:id/sections/:sectionId/lessons/:lessonId/video",
   protect,
   adminOnly,
-  multipartUpload.single("video"),
-  uploadLessonVideo
+  uploadLessonVideo // ✅ Just saves the URL — no file handling
 );
 
 // ============================================================

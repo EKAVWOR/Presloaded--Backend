@@ -13,6 +13,13 @@ const normalizeLevel = (v) => {
   return String(v).trim().toLowerCase();
 };
 
+// ✅ NEW: Normalize video type
+const normalizeVideoType = (v) => {
+  if (!v) return "";
+  const x = String(v).trim().toLowerCase();
+  return ["youtube", "cloudinary", "vimeo", ""].includes(x) ? x : "";
+};
+
 // ===== Sub-schemas =====
 
 const resourceSchema = new mongoose.Schema(
@@ -34,9 +41,15 @@ const lessonSchema = new mongoose.Schema(
     description: { type: String, trim: true, default: "" },
     // Legacy offline field
     duration: { type: String, trim: true, default: "" },
-    // Online video fields
+    // ✅ Video fields — works for YouTube, Cloudinary, Vimeo
     videoUrl: { type: String, trim: true, default: "" },
     videoPublicId: { type: String, trim: true, default: "" },
+    videoType: {                                  // ✅ NEW FIELD
+      type: String,
+      enum: ["youtube", "cloudinary", "vimeo", ""],
+      default: "",
+      set: normalizeVideoType,
+    },
     thumbnailUrl: { type: String, trim: true, default: "" },
     videoDuration: { type: Number, default: 0 }, // seconds
     order: { type: Number, default: 0 },
@@ -144,32 +157,18 @@ const courseSchema = new mongoose.Schema(
     // ===== Media =====
     thumbnail: { type: String, trim: true, default: "" },
     thumbnailPublicId: { type: String, trim: true, default: "" },
-    previewVideoUrl: { type: String, trim: true, default: "" }, // course trailer
+    previewVideoUrl: { type: String, trim: true, default: "" },
 
     // ===== Offline Course Fields =====
-    location: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-
-    schedule: {
-      type: String,
-      trim: true,
-      default: "",
-    },
-
+    location: { type: String, trim: true, default: "" },
+    schedule: { type: String, trim: true, default: "" },
     startDate: { type: Date },
 
     // ===== Online Course Fields =====
-    onlinePlatformUrl: {
-      type: String,
-      trim: true,
-      default: "",
-    },
+    onlinePlatformUrl: { type: String, trim: true, default: "" },
 
     // ===== Curriculum =====
-    // Legacy offline curriculum (kept for backward compatibility)
+    // Legacy offline curriculum
     curriculum: {
       type: [
         new mongoose.Schema(
@@ -195,12 +194,12 @@ const courseSchema = new mongoose.Schema(
       default: [],
     },
 
-    // New online course curriculum
+    // Online course sections
     sections: { type: [sectionSchema], default: [] },
 
-    // ===== Computed Stats (auto-updated) =====
+    // ===== Computed Stats =====
     totalLessons: { type: Number, default: 0 },
-    totalDuration: { type: Number, default: 0 }, // seconds
+    totalDuration: { type: Number, default: 0 },
     totalSections: { type: Number, default: 0 },
 
     // ===== Learning Outcomes =====
@@ -220,15 +219,13 @@ const courseSchema = new mongoose.Schema(
 
     // ===== Metrics =====
     studentsEnrolled: { type: Number, default: 0, min: 0 },
-
-    // Legacy metric fields (kept for backward compatibility)
     rating: { type: Number, default: 0, min: 0, max: 5 },
     reviewsCount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );
 
-// ===== Pre-validate: clean fields based on courseType =====
+// ===== Pre-validate =====
 courseSchema.pre("validate", function () {
   this.courseType = normalizeCourseType(this.courseType);
   this.level = normalizeLevel(this.level);
@@ -244,20 +241,17 @@ courseSchema.pre("validate", function () {
   }
 });
 
-// ===== Pre-save: slug generation + stats + discount clamp =====
+// ===== Pre-save =====
 courseSchema.pre("save", function () {
-  // Slug
   if (this.isModified("title")) {
     const base = slugify(this.title, { lower: true, strict: true, trim: true });
     this.slug = `${base}-${Date.now().toString(36)}`;
   }
 
-  // Discount clamp
   if (this.discountPrice && this.discountPrice >= this.price) {
     this.discountPrice = 0;
   }
 
-  // Auto-compute online course stats from sections
   if (this.sections && this.sections.length > 0) {
     let totalLessons = 0;
     let totalDuration = 0;
@@ -275,7 +269,7 @@ courseSchema.pre("save", function () {
   }
 });
 
-// ===== Pre-update: handle findOneAndUpdate =====
+// ===== Pre-update =====
 courseSchema.pre("findOneAndUpdate", function () {
   const update = this.getUpdate() || {};
   const $set = update.$set || update;
@@ -316,7 +310,7 @@ courseSchema.pre("findOneAndUpdate", function () {
   this.setUpdate(update);
 });
 
-// ===== Instance method: update average rating =====
+// ===== Instance method =====
 courseSchema.methods.updateAverageRating = function () {
   if (this.reviews.length === 0) {
     this.averageRating = 0;
@@ -328,7 +322,6 @@ courseSchema.methods.updateAverageRating = function () {
     this.averageRating =
       Math.round((total / this.reviews.length) * 10) / 10;
     this.totalReviews = this.reviews.length;
-    // Keep legacy fields in sync
     this.rating = this.averageRating;
     this.reviewsCount = this.totalReviews;
   }
@@ -338,6 +331,10 @@ courseSchema.methods.updateAverageRating = function () {
 courseSchema.index({ courseType: 1, isPublished: 1 });
 courseSchema.index({ category: 1 });
 courseSchema.index({ averageRating: -1 });
-courseSchema.index({ title: "text", description: "text", shortDescription: "text" });
+courseSchema.index({
+  title: "text",
+  description: "text",
+  shortDescription: "text",
+});
 
 module.exports = mongoose.model("Course", courseSchema);
